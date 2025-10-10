@@ -2,6 +2,15 @@
 
 A Unity utility that helps initializing new Unity projects.
 
+## Installation
+1. Open "Package Manager"
+2. Choose "Add package from git URL..."
+3. Use the HTTPS URL of this repository:
+```
+https://github.com/yanicksenn/Unity-PKG-ProjectInitializer.git#1.0.0
+```
+4. Click "Add"
+
 ## Features
 
 This package provides two main features:
