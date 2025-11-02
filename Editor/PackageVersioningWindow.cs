@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 using YanickSenn.ProjectInitializer.Editor.Shared;
@@ -111,9 +112,10 @@ namespace YanickSenn.ProjectInitializer.Editor
             var packageJsonPath = Path.Combine(_selectedPackagePath, "package.json");
             if (!File.Exists(packageJsonPath)) return;
             var packageJson = File.ReadAllText(packageJsonPath);
-            var packageInfo = JsonUtility.FromJson<PackageJson>(packageJson);
+            var packageInfo = JsonConvert.DeserializeObject<PackageJson>(packageJson);
             packageInfo.version = newVersion;
-            var newPackageJson = JsonUtility.ToJson(packageInfo, true);
+            JsonConvert.SerializeObject(packageInfo);
+            var newPackageJson = JsonConvert.SerializeObject(packageInfo, Formatting.Indented);
             File.WriteAllText(packageJsonPath, newPackageJson);
         }
 

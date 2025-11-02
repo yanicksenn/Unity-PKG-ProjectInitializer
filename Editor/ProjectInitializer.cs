@@ -4,9 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.PackageManager;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.UIElements;
 using YanickSenn.ProjectInitializer.Editor.Anchors;
 
 namespace YanickSenn.ProjectInitializer.Editor
@@ -16,6 +14,7 @@ namespace YanickSenn.ProjectInitializer.Editor
         private static readonly Dictionary<string, Type> Folders = new() {
             { "Assets/Art", typeof(ArtAnchor) },
             { "Assets/Audio", typeof(AudioAnchor) },
+            { "Assets/Features", typeof(FeaturesAnchor) },
             { "Assets/Materials", typeof(MaterialsAnchor) },
             { "Assets/Models", typeof(ModelsAnchor) },
             { "Assets/Prefabs", typeof(PrefabsAnchor) },
@@ -142,7 +141,7 @@ namespace YanickSenn.ProjectInitializer.Editor
                 "com.unity.multiplayer.tools",
                 "com.unity.netcode.gameobjects",
                 "com.unity.postprocessing",
-                "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.16.8"
+                "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.17.0"
             });
             Client.Resolve();
         }

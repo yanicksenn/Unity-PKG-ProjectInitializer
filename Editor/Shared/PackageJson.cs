@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 
 namespace YanickSenn.ProjectInitializer.Editor.Shared {
+
     [Serializable]
     public class PackageJson {
         public string name;
@@ -10,6 +12,7 @@ namespace YanickSenn.ProjectInitializer.Editor.Shared {
         public string unity;
         public string unityRelease;
         public Author author;
+        public Dictionary<string, string> dependencies;
     }
         
     [Serializable]
