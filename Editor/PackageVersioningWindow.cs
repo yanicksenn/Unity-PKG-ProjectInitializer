@@ -53,7 +53,13 @@ namespace YanickSenn.ProjectInitializer.Editor
             }
 
             if (GUILayout.Button("Release")) {
-                Release();
+                if (EditorUtility.DisplayDialog("Confirm Release", 
+                    $"Are you sure you want to release version {_version} for package {_packages[_selectedPackageIndex]}?", 
+                    "Release", 
+                    "Cancel"))
+                {
+                    Release();
+                }
             }
         }
 
