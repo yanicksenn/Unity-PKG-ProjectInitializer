@@ -5,8 +5,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.PackageManager;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UIElements;
 using YanickSenn.ProjectInitializer.Editor.Anchors;
+using YanickSenn.ProjectInitializer.Editor.Shared;
 
 namespace YanickSenn.ProjectInitializer.Editor
 {
@@ -37,7 +40,12 @@ namespace YanickSenn.ProjectInitializer.Editor
             PackageCreatorWindow.ShowWindow();
         }
         
-        [MenuItem("Tools/Project Setup/Auto-fix Violations", priority = 2)]
+        [MenuItem("Tools/Project Setup/Bump Package Version", priority = 2)]
+        public static void ShowPackageVersioningWindow() {
+            PackageVersioningWindow.ShowWindow();
+        }
+        
+        [MenuItem("Tools/Project Setup/Auto-fix Violations", priority = 3)]
         public static void AutoFixViolations() {
             var violationsFound = false;
             var anchorGuids = AssetDatabase.FindAssets($"t:{typeof(AbstractAnchor)}");
@@ -141,7 +149,6 @@ namespace YanickSenn.ProjectInitializer.Editor
             Client.Resolve();
         }
     }
-
 
     public class PackageCreatorWindow : EditorWindow {
         private string packageName = "com.company.packagename";
@@ -271,21 +278,21 @@ namespace YanickSenn.ProjectInitializer.Editor
 
             // Create package.json
             string packageJsonPath = Path.Combine(packageRootPath, "package.json");
-            string packageJsonContent = $@"
-{{
-    ""name"": ""{packageName}"",
-    ""version"": ""{version}"",
-    ""displayName"": ""{displayName}"",
-    ""description"": ""{description}"",
-    ""unity"": ""{unityVersion}"",
-    ""unityRelease"": ""{unityRelease}"",
-    ""author"": {{
-        ""name"": ""{authorName}"",
-        ""email"": ""{authorEmail}"",
-        ""url"": ""{authorUrl}"" 
-    }}
-}}
-";
+            var packageJson = new PackageJson {
+                name = packageName,
+                version = version,
+                displayName = displayName,
+                description = description,
+                unity = unityVersion,
+                unityRelease = unityRelease,
+                author = new Author {
+                    name = authorName,
+                    email = authorEmail,
+                    url = authorUrl
+                }
+            };
+            
+            string packageJsonContent = JsonUtility.ToJson(packageJson, true);
             FileUtils.CreateFileIfNeeded(packageJsonPath, packageJsonContent);
 
             // Create other files
@@ -329,94 +336,36 @@ namespace YanickSenn.ProjectInitializer.Editor
         }
     
         private void CreateAsmdef(string path, string name, string rootNamespace, AsmdefType type, string[] references = null) {
-            string asmdefPath = Path.Combine(path, name + ".asmdef");
-            string content = type switch {
-                AsmdefType.Runtime => CreateRuntimeAsmdefContent(name, rootNamespace),
-                AsmdefType.Editor => CreateEditorAsmdefContent(name, rootNamespace, references),
-                AsmdefType.Tests => CreateRuntimeTestsAsmdefContent(name, rootNamespace, references),
-                AsmdefType.EditorTests => CreateEditorTestsAsmdefContent(name, rootNamespace, references),
-                _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+            var asmdefPath = Path.Combine(path, name + ".asmdef");
+            var isEditor = type is AsmdefType.Editor or AsmdefType.EditorTests;
+            var isTest = type is AsmdefType.Tests or AsmdefType.EditorTests;
+            var asmdef = new Asmdef {
+                name = name,
+                rootNamespace = rootNamespace,
+                references = references ?? Array.Empty<string>(),
+                includePlatforms = isEditor ? new[] { "Editor" } : Array.Empty<string>(),
+                excludePlatforms = Array.Empty<string>(),
+                allowUnsafeCode = false,
+                overrideReferences = isEditor,
+                precompiledReferences = isEditor ? new[] { "nunit.framework.dll" } : Array.Empty<string>(),
+                autoReferenced = !isTest,
+                defineConstraints = isTest ? new[] { "UNITY_INCLUDE_TESTS" } : Array.Empty<string>(),
+                versionDefines = Array.Empty<string>(),
+                noEngineReferences = false
             };
 
+            asmdef.rootNamespace = type switch {
+                AsmdefType.Editor => $"{rootNamespace}.Editor",
+                AsmdefType.Tests => $"{rootNamespace}.Tests",
+                AsmdefType.EditorTests => $"{rootNamespace}.Editor.Tests",
+                _ => asmdef.rootNamespace
+            };
+
+            string content = JsonUtility.ToJson(asmdef, true);
             File.WriteAllText(asmdefPath, content);
         }
-
-        private static string CreateEditorTestsAsmdefContent(string name, string rootNamespace, string[] references) {
-            return $@"
-{{
-    ""name"": ""{name}"",
-    ""rootNamespace"": ""{rootNamespace}.Editor.Tests"",
-    ""references"": [""{string.Join("\", \"", references)}""],
-    ""includePlatforms"": [""Editor""],
-    ""excludePlatforms"": [],
-    ""allowUnsafeCode"": false,
-    ""overrideReferences"": true,
-    ""precompiledReferences"": [""nunit.framework.dll""],
-    ""autoReferenced"": false,
-    ""defineConstraints"": [""UNITY_INCLUDE_TESTS""],
-    ""versionDefines"": [],
-    ""noEngineReferences"": false
-}}
-";
-        }
-
-        private static string CreateRuntimeTestsAsmdefContent(string name, string rootNamespace, string[] references) {
-            return $@"
-{{
-    ""name"": ""{name}"",
-    ""rootNamespace"": ""{rootNamespace}.Tests"",
-    ""references"": [""{string.Join("\", \"", references)}""],
-    ""includePlatforms"": [],
-    ""excludePlatforms"": [],
-    ""allowUnsafeCode"": false,
-    ""overrideReferences"": true,
-    ""precompiledReferences"": [""nunit.framework.dll""],
-    ""autoReferenced"": false,
-    ""defineConstraints"": [""UNITY_INCLUDE_TESTS""],
-    ""versionDefines"": [],
-    ""noEngineReferences"": false
-}}
-";
-        }
-
-        private static string CreateEditorAsmdefContent(string name, string rootNamespace, string[] references) {
-            return $@"
-{{
-    ""name"": ""{name}"",
-    ""rootNamespace"": ""{rootNamespace}.Editor"",
-    ""references"": [""{string.Join("\", \"", references)}""],
-    ""includePlatforms"": [""Editor""],
-    ""excludePlatforms"": [],
-    ""allowUnsafeCode"": false,
-    ""overrideReferences"": false,
-    ""precompiledReferences"": [],
-    ""autoReferenced"": true,
-    ""defineConstraints"": [],
-    ""versionDefines"": [],
-    ""noEngineReferences"": false
-}}
-";
-        }
-
-        private static string CreateRuntimeAsmdefContent(string name, string rootNamespace) {
-            return $@"
-{{
-    ""name"": ""{name}"",
-    ""rootNamespace"": ""{rootNamespace}"",
-    ""references"": [],
-    ""includePlatforms"": [],
-    ""excludePlatforms"": [],
-    ""allowUnsafeCode"": false,
-    ""overrideReferences"": false,
-    ""precompiledReferences"": [],
-    ""autoReferenced"": true,
-    ""defineConstraints"": [],
-    ""versionDefines"": [],
-    ""noEngineReferences"": false
-}}
-";
-        }
     }
+
     public static class FileUtils {
         public static void CreateDirectoryIfNeeded(string path) {
             if (!Directory.Exists(path)) {
@@ -431,6 +380,157 @@ namespace YanickSenn.ProjectInitializer.Editor
             } else {
                 File.Create(path).Dispose();
             }
+        }
+    }
+    
+    public class PackageVersioningWindow : EditorWindow {
+        private string[] _packages;
+        private int _selectedPackageIndex;
+        private string _selectedPackagePath;
+        private string _version;
+
+        public static void ShowWindow() {
+            GetWindow<PackageVersioningWindow>("Bump Package Version");
+        }
+
+        private void OnEnable() {
+            _packages = Directory.GetDirectories("Packages/", "com.*")
+                .Select(Path.GetFileName)
+                .ToArray();
+
+            if (_packages.Length > 0) {
+                SelectPackage(0);
+            }
+        }
+
+        private void OnGUI() {
+            if (_packages.Length == 0) {
+                EditorGUILayout.HelpBox("No packages found.", MessageType.Warning);
+                return;
+            }
+
+            var newSelectedPackage = EditorGUILayout.Popup("Package", _selectedPackageIndex, _packages);
+            if (newSelectedPackage != _selectedPackageIndex) {
+                SelectPackage(newSelectedPackage);
+            }
+
+            EditorGUILayout.LabelField("Version", _version);
+
+            if (GUILayout.Button("Bump Major")) {
+                BumpVersion(VersionComponent.Major);
+            }
+
+            if (GUILayout.Button("Bump Minor")) {
+                BumpVersion(VersionComponent.Minor);
+            }
+
+            if (GUILayout.Button("Bump Patch")) {
+                BumpVersion(VersionComponent.Patch);
+            }
+
+            if (GUILayout.Button("Release")) {
+                Release();
+            }
+        }
+
+        private void SelectPackage(int index) {
+            _selectedPackageIndex = index;
+            _selectedPackagePath = Path.GetFullPath("Packages/" + _packages[index]);
+            _version = GetPackageVersion();
+        }
+
+        private string GetPackageVersion() {
+            var packageJsonPath = Path.Combine(_selectedPackagePath, "package.json");
+            if (!File.Exists(packageJsonPath)) return "0.0.0";
+            var packageJson = File.ReadAllText(packageJsonPath);
+            var packageInfo = JsonUtility.FromJson<PackageJson>(packageJson);
+            return packageInfo.version;
+        }
+
+        private void BumpVersion(VersionComponent component) {
+            var versionParts = _version.Split('.').Select(int.Parse).ToArray();
+            if (versionParts.Length != 3) {
+                throw new ArgumentOutOfRangeException(
+                    $"Expected 3 components (major, minor, patch) in package version but got {versionParts.Length} instead");
+            }
+
+            switch (component) {
+                case VersionComponent.Major:
+                    versionParts[0]++;
+                    versionParts[1] = 0;
+                    versionParts[2] = 0;
+                    break;
+                case VersionComponent.Minor:
+                    versionParts[1]++;
+                    versionParts[2] = 0;
+                    break;
+                case VersionComponent.Patch:
+                    versionParts[2]++;
+                    break;
+            }
+
+            _version = string.Join(".", versionParts);
+            SetPackageVersion(_version);
+        }
+
+        private void SetPackageVersion(string newVersion) {
+            var packageJsonPath = Path.Combine(_selectedPackagePath, "package.json");
+            if (!File.Exists(packageJsonPath)) return;
+            var packageJson = File.ReadAllText(packageJsonPath);
+            var packageInfo = JsonUtility.FromJson<PackageJson>(packageJson);
+            packageInfo.version = newVersion;
+            var newPackageJson = JsonUtility.ToJson(packageInfo, true);
+            File.WriteAllText(packageJsonPath, newPackageJson);
+        }
+
+        private void Release() {
+            try {
+                EditorUtility.DisplayProgressBar("Releasing Package", "Adding files to git...", 0.25f);
+                RunGitCommand($"add .", _selectedPackagePath);
+
+                EditorUtility.DisplayProgressBar("Releasing Package", "Committing changes...", 0.5f);
+                RunGitCommand($"commit -m \"chore(release): {_version}\"", _selectedPackagePath);
+
+                EditorUtility.DisplayProgressBar("Releasing Package", "Tagging release...", 0.75f);
+                RunGitCommand($"tag {_version}", _selectedPackagePath);
+
+                EditorUtility.DisplayProgressBar("Releasing Package", "Pushing to remote...", 1.0f);
+                RunGitCommand("push --follow-tags", _selectedPackagePath);
+            }
+            finally {
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        private void RunGitCommand(string command, string workingDirectory) {
+            var process = new System.Diagnostics.Process {
+                StartInfo = {
+                    FileName = "git",
+                    Arguments = command,
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            var output = process.StandardOutput.ReadToEnd();
+            var error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0) {
+                Debug.LogError($"Error running git command: {command}\n{error}");
+            } else {
+                Debug.Log($"Git command successful: {command}\n{output}");
+            }
+        }
+
+
+        private enum VersionComponent {
+            Major,
+            Minor,
+            Patch
         }
     }
 }
