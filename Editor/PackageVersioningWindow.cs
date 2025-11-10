@@ -121,16 +121,16 @@ namespace YanickSenn.ProjectInitializer.Editor
 
         private void Release() {
             try {
-                EditorUtility.DisplayProgressBar("Releasing Package", "Adding files to git...", 0.25f);
+                EditorUtility.DisplayProgressBar("Releasing Package", "Adding files to git...", 0.20f);
                 RunGitCommand($"add .", _selectedPackagePath);
 
-                EditorUtility.DisplayProgressBar("Releasing Package", "Committing changes...", 0.5f);
+                EditorUtility.DisplayProgressBar("Releasing Package", "Committing changes...", 0.4f);
                 RunGitCommand($"commit -m \"chore(release): {_version}\"", _selectedPackagePath);
 
-                EditorUtility.DisplayProgressBar("Releasing Package", "Tagging release...", 0.75f);
+                EditorUtility.DisplayProgressBar("Releasing Package", "Tagging release...", 0.6f);
                 RunGitCommand($"tag -a {_version} -m \"chore(release): {_version}\"", _selectedPackagePath);
 
-                EditorUtility.DisplayProgressBar("Releasing Package", "Pushing code to remote...", 1.0f);
+                EditorUtility.DisplayProgressBar("Releasing Package", "Pushing code to remote...", 0.8f);
                 RunGitCommand("push origin main", _selectedPackagePath);
                 
                 EditorUtility.DisplayProgressBar("Releasing Package", "Pushing tags to remote...", 1.0f);
